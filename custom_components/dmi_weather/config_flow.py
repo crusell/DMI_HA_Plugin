@@ -22,11 +22,33 @@ class DMIWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             try:
+                # Convert coordinates to float, handling comma format
+                try:
+                    lat = float(str(user_input[CONF_LATITUDE]).replace(',', '.'))
+                    lon = float(str(user_input[CONF_LONGITUDE]).replace(',', '.'))
+                except ValueError:
+                    errors["base"] = "invalid_coordinates"
+                    return self.async_show_form(
+                        step_id="user",
+                        data_schema=vol.Schema(
+                            {
+                                vol.Required(CONF_NAME, default=user_input.get(CONF_NAME, DEFAULT_NAME)): str,
+                                vol.Required(CONF_API_KEY, default=user_input.get(CONF_API_KEY, "")): str,
+                                vol.Required(CONF_LATITUDE, default=user_input.get(CONF_LATITUDE, "")): str,
+                                vol.Required(CONF_LONGITUDE, default=user_input.get(CONF_LONGITUDE, "")): str,
+                            }
+                        ),
+                        errors=errors,
+                        description_placeholders={
+                            "docs_url": "https://www.dmi.dk/data/dmi-opendata/"
+                        },
+                    )
+                
                 # Test the API connection
                 api = DMIWeatherAPI(
                     self.hass,
-                    user_input[CONF_LATITUDE],
-                    user_input[CONF_LONGITUDE],
+                    lat,
+                    lon,
                     user_input[CONF_API_KEY]
                 )
                 
@@ -35,13 +57,18 @@ class DMIWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if not collections:
                     errors["base"] = "cannot_connect"
                 else:
-                    # Create the config entry
+                    # Create the config entry with converted coordinates
+                    config_data = user_input.copy()
+                    config_data[CONF_LATITUDE] = lat
+                    config_data[CONF_LONGITUDE] = lon
+                    
                     return self.async_create_entry(
                         title=user_input[CONF_NAME],
-                        data=user_input
+                        data=config_data
                     )
                     
-            except Exception:
+            except Exception as e:
+                _LOGGER.error("Config flow error: %s", e)
                 errors["base"] = "cannot_connect"
 
         return self.async_show_form(
@@ -50,8 +77,8 @@ class DMIWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                     vol.Required(CONF_API_KEY): str,
-                    vol.Required(CONF_LATITUDE): float,
-                    vol.Required(CONF_LONGITUDE): float,
+                    vol.Required(CONF_LATITUDE): str,
+                    vol.Required(CONF_LONGITUDE): str,
                 }
             ),
             errors=errors,
