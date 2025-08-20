@@ -43,12 +43,12 @@ class DMIWeatherAPI:
             if not collections:
                 raise Exception("No EDR collections available")
             
-                            # Use the HARMONIE DINI EPS means collection for weather data
-                collection_id = "harmonie_dini_eps_means"
-                if collection_id not in collections:
-                    # Fallback to first available collection
-                    collection_id = list(collections.keys())[0]
-                _LOGGER.debug("Using EDR collection: %s", collection_id)
+            # Use the HARMONIE DINI EPS means collection for weather data
+            collection_id = "harmonie_dini_eps_means"
+            if collection_id not in collections:
+                # Fallback to first available collection
+                collection_id = list(collections.keys())[0]
+            _LOGGER.debug("Using EDR collection: %s", collection_id)
             
             # Get current weather and forecast
             await self._fetch_weather_data(collection_id)
@@ -133,15 +133,14 @@ class DMIWeatherAPI:
                 # Extract weather values for this time step
                 weather_data = {
                     "time": time_obj,
-                    "temperature": self._extract_parameter_value(ranges, "air_temperature_2m", i),
-                    "pressure": self._extract_parameter_value(ranges, "air_pressure_at_sea_level", i),
-                    "humidity": self._extract_parameter_value(ranges, "relative_humidity_2m", i),
-                    "wind_speed": self._extract_parameter_value(ranges, "wind_speed_10m", i),
-                    "wind_direction": self._extract_parameter_value(ranges, "wind_direction_10m", i),
-                    "wind_gust": self._extract_parameter_value(ranges, "wind_gust_10m", i),
-                    "precipitation": self._extract_parameter_value(ranges, "precipitation_amount", i),
-                    "cloud_cover": self._extract_parameter_value(ranges, "cloud_area_fraction", i),
-                    "visibility": self._extract_parameter_value(ranges, "visibility", i),
+                    "temperature": self._extract_parameter_value(ranges, "temperature-2m", i),
+                    "pressure": self._extract_parameter_value(ranges, "pressure-sealevel", i),
+                    "humidity": self._extract_parameter_value(ranges, "relative-humidity-2m", i),
+                    "wind_speed": self._extract_parameter_value(ranges, "wind-speed-10m", i),
+                    "wind_gust": self._extract_parameter_value(ranges, "gust-wind-speed-10m", i),
+                    "precipitation": self._extract_parameter_value(ranges, "total-precipitation", i),
+                    "cloud_cover": self._extract_parameter_value(ranges, "fraction-of-cloud-cover", i),
+                    "dew_point": self._extract_parameter_value(ranges, "dew-point-temperature-2m", i),
                     "weather_code": None,  # Will be estimated from other parameters
                 }
                 
@@ -195,6 +194,10 @@ class DMIWeatherAPI:
         # Convert cloud cover from fraction to percentage if needed
         if parameter == "fraction-of-cloud-cover" and value <= 1:
             value = value * 100
+        
+        # Convert dew point from Kelvin to Celsius if needed
+        if parameter == "dew-point-temperature-2m" and value > 200:  # Likely Kelvin
+            value = value - 273.15
         
         return float(value)
 
