@@ -1,0 +1,24 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "DMI Weather EDR",
+        "description": "Set up your DMI Weather EDR integration. You need an API key from the DMI Open Data portal.",
+        "data": {
+          "name": "Name",
+          "api_key": "API Key",
+          "latitude": "Latitude",
+          "longitude": "Longitude"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to DMI EDR API",
+      "invalid_auth": "Invalid API key",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "Service is already configured"
+    }
+  }
+}

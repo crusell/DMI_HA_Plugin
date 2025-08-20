@@ -1,0 +1,11 @@
+{
+  "domain": "dmi_weather",
+  "name": "DMI Weather",
+  "documentation": "https://github.com/your-username/dmi_weather",
+  "dependencies": [],
+  "codeowners": ["@your-username"],
+  "requirements": ["aiohttp"],
+  "version": "1.0.0",
+  "config_flow": true,
+  "iot_class": "cloud_polling"
+}
