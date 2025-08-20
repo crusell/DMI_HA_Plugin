@@ -1,9 +1,9 @@
 {
   "domain": "dmi_weather",
-  "name": "DMI Weather",
-  "documentation": "https://github.com/your-username/dmi_weather",
+  "name": "DMI Weather for Home Assistant",
+  "documentation": "https://github.com/crusell/dmi_weather",
   "dependencies": [],
-  "codeowners": ["@your-username"],
+  "codeowners": ["@crusell"],
   "requirements": ["aiohttp"],
   "version": "1.0.0",
   "config_flow": true,

@@ -113,30 +113,6 @@ This integration uses the DMI HARMONIE DINI IG weather model, which provides:
 
 For more information about the DMI Open Data API, visit: https://opendatadocs.dmi.govcloud.dk/DMIOpenData
 
-## Testing
-
-### Comprehensive Forecast Test
-
-We've included a comprehensive test script that demonstrates the integration's capabilities:
-
-```bash
-# Run the comprehensive forecast test
-python3 test_comprehensive_forecast.py
-```
-
-This test shows:
-- **Current weather conditions**
-- **24-hour hourly forecasts** with temperature, wind, rain, and conditions
-- **5-day daily forecasts** with high/low temperatures and total rainfall
-
-### Test Results
-
-Our testing shows:
-- ✅ **EDR API Working**: Successfully retrieves weather data
-- ✅ **Fast Response**: 2-3 second response times
-- ✅ **Complete Data**: All weather parameters available
-- ✅ **Ready for Production**: Integration is fully functional
-
 ## Troubleshooting
 
 ### Common Issues
@@ -161,14 +137,6 @@ logger:
   logs:
     custom_components.dmi_weather: debug
 ```
-
-### Alternative Solutions
-
-If you encounter issues with DMI API access, consider these alternatives:
-
-1. **Met.no** (Norwegian weather service) - Free, no key needed, covers Sweden
-2. **SMHI** (Swedish weather service) - Free, no key needed, perfect for Sweden
-3. **OpenWeatherMap** - Global, free tier available
 
 ## Technical Details
 
