@@ -1,4 +1,4 @@
-"""Config flow for DMI Weather EDR integration."""
+"""Config flow for DMI Weather integration."""
 from __future__ import annotations
 
 import voluptuous as vol
@@ -8,11 +8,11 @@ from homeassistant.data_entry_flow import FlowResult
 from typing import Any
 
 from .const import DEFAULT_NAME, DOMAIN, CONF_API_KEY
-from .dmi_edr_api import DMIWeatherEDRAPI
+from .dmi_api import DMIWeatherAPI
 
 
-class DMIWeatherEDRConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for DMI Weather EDR."""
+class DMIWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for DMI Weather."""
 
     VERSION = 1
 
@@ -23,7 +23,7 @@ class DMIWeatherEDRConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 # Test the API connection
-                api = DMIWeatherEDRAPI(
+                api = DMIWeatherAPI(
                     self.hass,
                     user_input[CONF_LATITUDE],
                     user_input[CONF_LONGITUDE],

@@ -41,7 +41,7 @@ from .const import (
     DOMAIN,
     WEATHER_CONDITIONS,
 )
-from .dmi_edr_api import DMIWeatherEDRAPI
+from .dmi_api import DMIWeatherAPI
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,13 +57,13 @@ async def async_setup_entry(
     longitude = config_entry.data[CONF_LONGITUDE]
     api_key = config_entry.data[CONF_API_KEY]
 
-    api = DMIWeatherEDRAPI(hass, latitude, longitude, api_key)
+    api = DMIWeatherAPI(hass, latitude, longitude, api_key)
     
-    async_add_entities([DMIWeatherEDREntity(name, api)], True)
+    async_add_entities([DMIWeatherEntity(name, api)], True)
 
 
-class DMIWeatherEDREntity(WeatherEntity):
-    """Representation of a DMI Weather EDR entity."""
+class DMIWeatherEntity(WeatherEntity):
+    """Representation of a DMI Weather entity."""
 
     _attr_attribution = "Data provided by Danish Meteorological Institute (DMI) via EDR API"
     _attr_native_precipitation_unit = UnitOfPrecipitationDepth.MILLIMETERS
@@ -73,7 +73,7 @@ class DMIWeatherEDREntity(WeatherEntity):
     _attr_native_wind_speed_unit = UnitOfSpeed.METERS_PER_SECOND
     _attr_supported_features = WeatherEntityFeature.FORECAST_DAILY | WeatherEntityFeature.FORECAST_HOURLY
 
-    def __init__(self, name: str, api: DMIWeatherEDRAPI) -> None:
+    def __init__(self, name: str, api: DMIWeatherAPI) -> None:
         """Initialize the DMI Weather EDR entity."""
         self._api = api
         self._attr_name = name

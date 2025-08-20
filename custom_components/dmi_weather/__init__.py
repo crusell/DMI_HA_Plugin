@@ -1,4 +1,4 @@
-"""The DMI Weather EDR integration."""
+"""The DMI Weather integration."""
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -9,7 +9,7 @@ PLATFORMS: list[Platform] = [Platform.WEATHER]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up DMI Weather EDR from a config entry."""
+    """Set up DMI Weather from a config entry."""
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = entry.data
 
