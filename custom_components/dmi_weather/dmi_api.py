@@ -37,7 +37,7 @@ class DMIWeatherAPI:
         self.forecast_data: list[dict[str, Any]] = []
         self.hourly_forecast_data: list[dict[str, Any]] = []
         self._last_request_time = 0
-        self._rate_limit_delay = 3.0  # Increased to 3 seconds between requests
+        self._rate_limit_delay = 5.0  # Increased to 5 seconds between requests
         self._max_retries = 3
 
     async def _rate_limit(self) -> None:
@@ -48,6 +48,16 @@ class DMIWeatherAPI:
             delay = self._rate_limit_delay - time_since_last
             await asyncio.sleep(delay)
         self._last_request_time = asyncio.get_event_loop().time()
+
+    async def test_connection(self) -> bool:
+        """Test API connection without affecting rate limits."""
+        try:
+            await self._rate_limit()
+            collections = await self._get_collections()
+            return len(collections) > 0
+        except Exception as e:
+            _LOGGER.error("Connection test failed: %s", e)
+            return False
 
     async def update(self) -> None:
         """Update weather data from DMI EDR API."""
@@ -99,7 +109,7 @@ class DMIWeatherAPI:
                 async with session.get(url, headers=headers) as response:
                     if response.status == 429:
                         _LOGGER.warning("Rate limit exceeded, waiting before retry")
-                        await asyncio.sleep(5)  # Wait 5 seconds before retry
+                        await asyncio.sleep(10)  # Wait 10 seconds before retry
                         raise Exception("Rate limit exceeded, please try again later")
                     elif response.status != 200:
                         raise Exception(f"Collections API request failed with status {response.status}")
@@ -159,7 +169,7 @@ class DMIWeatherAPI:
                 async with session.get(url, params=params, headers=headers) as response:
                     if response.status == 429:
                         _LOGGER.warning("Rate limit exceeded, waiting before retry")
-                        await asyncio.sleep(5)  # Wait 5 seconds before retry
+                        await asyncio.sleep(10)  # Wait 10 seconds before retry
                         raise Exception("Rate limit exceeded, please try again later")
                     elif response.status == 404:
                         error_text = await response.text()

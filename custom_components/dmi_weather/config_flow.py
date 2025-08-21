@@ -44,18 +44,9 @@ class DMIWeatherConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         },
                     )
                 
-                # Test the API connection
-                api = DMIWeatherAPI(
-                    self.hass,
-                    lat,
-                    lon,
-                    user_input[CONF_API_KEY]
-                )
-                
-                # Try to get collections to validate API key and connection
-                collections = await api._get_collections()
-                if not collections:
-                    errors["base"] = "cannot_connect"
+                # Validate coordinates are reasonable
+                if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+                    errors["base"] = "invalid_coordinates"
                 else:
                     # Create the config entry with converted coordinates
                     config_data = user_input.copy()
