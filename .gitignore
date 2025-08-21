@@ -1,5 +1,8 @@
 # Test files
 test_comprehensive_forecast.py
+test_standalone.py
+test_standalone_slow.py
+quick_test.py
 *.pyc
 
 # Python
