@@ -37,7 +37,8 @@ class DMIWeatherAPI:
         self.forecast_data: list[dict[str, Any]] = []
         self.hourly_forecast_data: list[dict[str, Any]] = []
         self._last_request_time = 0
-        self._rate_limit_delay = 2.0  # Minimum 2 seconds between requests
+        self._rate_limit_delay = 3.0  # Increased to 3 seconds between requests
+        self._max_retries = 3
 
     async def _rate_limit(self) -> None:
         """Ensure minimum delay between API requests to avoid rate limiting."""
@@ -50,27 +51,40 @@ class DMIWeatherAPI:
 
     async def update(self) -> None:
         """Update weather data from DMI EDR API."""
-        try:
-            # Apply rate limiting
-            await self._rate_limit()
-            
-            # Get available collections first
-            collections = await self._get_collections()
-            if not collections:
-                raise Exception("No EDR collections available")
-            
-            # Use the HARMONIE DINI EPS means collection for weather data
-            collection_id = "harmonie_dini_eps_means"
-            if collection_id not in collections:
-                # Fallback to first available collection
-                collection_id = list(collections.keys())[0]
-            _LOGGER.debug("Using EDR collection: %s", collection_id)
-            
-            # Get current weather and forecast
-            await self._fetch_weather_data(collection_id)
-        except Exception as err:
-            _LOGGER.error("Error fetching DMI EDR weather data: %s", err)
-            raise
+        for attempt in range(self._max_retries):
+            try:
+                # Apply rate limiting
+                await self._rate_limit()
+                
+                # Get available collections first
+                collections = await self._get_collections()
+                if not collections:
+                    raise Exception("No EDR collections available")
+                
+                # Use the HARMONIE DINI EPS means collection for weather data
+                collection_id = "harmonie_dini_eps_means"
+                if collection_id not in collections:
+                    # Fallback to first available collection
+                    collection_id = list(collections.keys())[0]
+                _LOGGER.debug("Using EDR collection: %s", collection_id)
+                
+                # Get current weather and forecast
+                await self._fetch_weather_data(collection_id)
+                
+                # If we get here, success!
+                return
+                
+            except Exception as err:
+                _LOGGER.warning("Attempt %d/%d failed: %s", attempt + 1, self._max_retries, err)
+                if attempt < self._max_retries - 1:
+                    # Wait before retry with exponential backoff
+                    wait_time = (2 ** attempt) * 2  # 2, 4, 8 seconds
+                    _LOGGER.info("Waiting %d seconds before retry...", wait_time)
+                    await asyncio.sleep(wait_time)
+                else:
+                    # Last attempt failed
+                    _LOGGER.error("All %d attempts failed. Last error: %s", self._max_retries, err)
+                    raise
 
     async def _get_collections(self) -> dict[str, Any]:
         """Get available EDR collections."""
@@ -80,7 +94,8 @@ class DMIWeatherAPI:
         
         try:
             timeout = ClientTimeout(total=DEFAULT_TIMEOUT, connect=10, sock_read=30)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
+            connector = aiohttp.TCPConnector(limit=10, limit_per_host=5, ttl_dns_cache=300)
+            async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
                 async with session.get(url, headers=headers) as response:
                     if response.status == 429:
                         _LOGGER.warning("Rate limit exceeded, waiting before retry")
@@ -121,17 +136,26 @@ class DMIWeatherAPI:
         
         _LOGGER.debug("Requesting weather data from %s to %s", start_time_str, end_time_str)
         
-        # Build query parameters for position query
+        # Build query parameters for position query - start with fewer parameters
+        essential_params = [
+            "temperature-2m",
+            "wind-speed-10m", 
+            "gust-wind-speed-10m",
+            "total-precipitation",
+            "fraction-of-cloud-cover"
+        ]
+        
         params = {
             "coords": f"POINT({self.longitude} {self.latitude})",
             "datetime": f"{start_time_str}/{end_time_str}",
-            "parameter-name": ",".join(EDR_PARAMETERS.values()),
+            "parameter-name": ",".join(essential_params),
             "f": "CoverageJSON"  # Request CoverageJSON format
         }
         
         try:
             timeout = ClientTimeout(total=DEFAULT_TIMEOUT, connect=10, sock_read=30)
-            async with aiohttp.ClientSession(timeout=timeout) as session:
+            connector = aiohttp.TCPConnector(limit=10, limit_per_host=5, ttl_dns_cache=300)
+            async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
                 async with session.get(url, params=params, headers=headers) as response:
                     if response.status == 429:
                         _LOGGER.warning("Rate limit exceeded, waiting before retry")
@@ -184,13 +208,13 @@ class DMIWeatherAPI:
                 weather_data = {
                     "time": time_obj,
                     "temperature": self._extract_parameter_value(ranges, "temperature-2m", i),
-                    "pressure": self._extract_parameter_value(ranges, "pressure-sealevel", i),
-                    "humidity": self._extract_parameter_value(ranges, "relative-humidity-2m", i),
+                    "pressure": None,  # Not requested in this call
+                    "humidity": None,  # Not requested in this call
                     "wind_speed": self._extract_parameter_value(ranges, "wind-speed-10m", i),
                     "wind_gust": self._extract_parameter_value(ranges, "gust-wind-speed-10m", i),
                     "precipitation": self._extract_parameter_value(ranges, "total-precipitation", i),
                     "cloud_cover": self._extract_parameter_value(ranges, "fraction-of-cloud-cover", i),
-                    "dew_point": self._extract_parameter_value(ranges, "dew-point-temperature-2m", i),
+                    "dew_point": None,  # Not requested in this call
                     "weather_code": None,  # Will be estimated from other parameters
                 }
                 
