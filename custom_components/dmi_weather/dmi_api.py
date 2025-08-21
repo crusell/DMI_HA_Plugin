@@ -153,7 +153,7 @@ class DMIWeatherAPI:
 
         endpoint = f"{EDR_COLLECTIONS_ENDPOINT}/{collection_id}{EDR_POSITION_QUERY}"
         data = await self._make_request(endpoint, params)
-        await self._process_edr_data(data)
+        self._process_edr_data(data)
 
     def _process_edr_data(self, data: Dict[str, Any]) -> None:
         """Process the CoverageJSON data from EDR API."""
