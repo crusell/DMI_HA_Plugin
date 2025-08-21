@@ -30,10 +30,9 @@ class DMIWeatherAPI:
         self._rate_limit_delay = 5.0
         self._max_retries = 3
         
-        # DNS fallback URLs for Docker environments
+        # Use only the domain name - Home Assistant's HTTP client handles DNS
         self._api_urls = [
             DMI_EDR_BASE_URL,  # Original domain
-            "https://188.64.157.64/v1/forecastedr",  # Direct IP fallback
         ]
 
     async def _rate_limit(self) -> None:
@@ -45,46 +44,42 @@ class DMIWeatherAPI:
             await asyncio.sleep(delay)
         self._last_request_time = asyncio.get_event_loop().time()
 
-    async def _make_request_with_fallback(self, endpoint: str, params: Dict = None) -> Dict[str, Any]:
-        """Make API request with DNS fallback for Docker environments."""
+    async def _make_request(self, endpoint: str, params: Dict = None) -> Dict[str, Any]:
+        """Make API request using Home Assistant's HTTP client."""
         headers = {DMI_AUTH_HEADER: self.api_key}
         
         # Use Home Assistant's built-in HTTP client
         session = async_get_clientsession(self.hass)
         
-        # Try each URL until one works
-        for base_url in self._api_urls:
-            url = f"{base_url}{endpoint}"
-            _LOGGER.debug("Trying URL: %s", url)
-            
-            try:
-                async with session.get(url, params=params, headers=headers, timeout=DEFAULT_TIMEOUT) as response:
-                    if response.status == 429:
-                        _LOGGER.warning("Rate limit exceeded, waiting before retry")
-                        await asyncio.sleep(10)
-                        raise Exception("Rate limit exceeded, please try again later")
-                    elif response.status == 404:
-                        error_text = await response.text()
-                        _LOGGER.error("API returned 404: %s", error_text)
-                        raise Exception("No weather data available for the requested time period. Please try again later.")
-                    elif response.status != 200:
-                        error_text = await response.text()
-                        _LOGGER.error("API request failed with status %d: %s", response.status, error_text)
-                        raise Exception(f"API request failed with status {response.status}")
-                    
-                    data = await response.json()
-                    _LOGGER.debug("Successfully connected using: %s", base_url)
-                    return data
-                        
-            except asyncio.TimeoutError:
-                _LOGGER.warning("Timeout connecting to %s", base_url)
-                continue
-            except Exception as e:
-                _LOGGER.warning("Error connecting to %s: %s", base_url, e)
-                continue
+        # Use the domain URL
+        url = f"{self._api_urls[0]}{endpoint}"
+        _LOGGER.debug("Making request to: %s", url)
         
-        # If we get here, all URLs failed
-        raise Exception("All API endpoints failed. Check network connectivity and DNS resolution.")
+        try:
+            async with session.get(url, params=params, headers=headers, timeout=DEFAULT_TIMEOUT) as response:
+                if response.status == 429:
+                    _LOGGER.warning("Rate limit exceeded, waiting before retry")
+                    await asyncio.sleep(10)
+                    raise Exception("Rate limit exceeded, please try again later")
+                elif response.status == 404:
+                    error_text = await response.text()
+                    _LOGGER.error("API returned 404: %s", error_text)
+                    raise Exception("No weather data available for the requested time period. Please try again later.")
+                elif response.status != 200:
+                    error_text = await response.text()
+                    _LOGGER.error("API request failed with status %d: %s", response.status, error_text)
+                    raise Exception(f"API request failed with status {response.status}")
+                
+                data = await response.json()
+                _LOGGER.debug("Successfully connected to DMI API")
+                return data
+                    
+        except asyncio.TimeoutError:
+            _LOGGER.error("Timeout connecting to DMI EDR API")
+            raise Exception("Timeout connecting to DMI EDR API. Please try again.")
+        except Exception as e:
+            _LOGGER.error("Error connecting to DMI EDR API: %s", e)
+            raise Exception(f"Network error: {e}")
 
     async def test_connection(self) -> bool:
         """Test API connection without affecting rate limits."""
@@ -125,7 +120,7 @@ class DMIWeatherAPI:
     async def _get_collections(self) -> Dict[str, Any]:
         """Get available EDR collections."""
         await self._rate_limit()
-        data = await self._make_request_with_fallback(EDR_COLLECTIONS_ENDPOINT)
+        data = await self._make_request(EDR_COLLECTIONS_ENDPOINT)
         
         # Process collections data
         collections = {}
@@ -157,7 +152,7 @@ class DMIWeatherAPI:
         }
 
         endpoint = f"{EDR_COLLECTIONS_ENDPOINT}/{collection_id}{EDR_POSITION_QUERY}"
-        data = await self._make_request_with_fallback(endpoint, params)
+        data = await self._make_request(endpoint, params)
         await self._process_edr_data(data)
 
     def _process_edr_data(self, data: Dict[str, Any]) -> None:
