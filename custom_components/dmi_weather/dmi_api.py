@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import aiohttp
+from aiohttp import ClientTimeout
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
@@ -77,23 +78,31 @@ class DMIWeatherAPI:
         url = f"{DMI_EDR_BASE_URL}{EDR_COLLECTIONS_ENDPOINT}"
         headers = {DMI_AUTH_HEADER: self.api_key}
         
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=DEFAULT_TIMEOUT)) as session:
-            async with session.get(url, headers=headers) as response:
-                if response.status == 429:
-                    _LOGGER.warning("Rate limit exceeded, waiting before retry")
-                    await asyncio.sleep(5)  # Wait 5 seconds before retry
-                    raise Exception("Rate limit exceeded, please try again later")
-                elif response.status != 200:
-                    raise Exception(f"Collections API request failed with status {response.status}")
-                
-                data = await response.json()
-                collections = {}
-                
-                if "collections" in data:
-                    for collection in data["collections"]:
-                        collections[collection["id"]] = collection
-                
-                return collections
+        try:
+            timeout = ClientTimeout(total=DEFAULT_TIMEOUT, connect=10, sock_read=30)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(url, headers=headers) as response:
+                    if response.status == 429:
+                        _LOGGER.warning("Rate limit exceeded, waiting before retry")
+                        await asyncio.sleep(5)  # Wait 5 seconds before retry
+                        raise Exception("Rate limit exceeded, please try again later")
+                    elif response.status != 200:
+                        raise Exception(f"Collections API request failed with status {response.status}")
+                    
+                    data = await response.json()
+                    collections = {}
+                    
+                    if "collections" in data:
+                        for collection in data["collections"]:
+                            collections[collection["id"]] = collection
+                    
+                    return collections
+        except asyncio.TimeoutError:
+            _LOGGER.error("Timeout connecting to DMI EDR API")
+            raise Exception("Timeout connecting to DMI EDR API. Please try again.")
+        except aiohttp.ClientError as e:
+            _LOGGER.error("Network error connecting to DMI EDR API: %s", e)
+            raise Exception(f"Network error: {e}")
 
     async def _fetch_weather_data(self, collection_id: str) -> None:
         """Fetch weather data from DMI EDR API."""
@@ -110,6 +119,8 @@ class DMIWeatherAPI:
         start_time_str = now.strftime("%Y-%m-%dT%H:%M:%SZ")
         end_time_str = end_time.strftime("%Y-%m-%dT%H:%M:%SZ")
         
+        _LOGGER.debug("Requesting weather data from %s to %s", start_time_str, end_time_str)
+        
         # Build query parameters for position query
         params = {
             "coords": f"POINT({self.longitude} {self.latitude})",
@@ -118,17 +129,31 @@ class DMIWeatherAPI:
             "f": "CoverageJSON"  # Request CoverageJSON format
         }
         
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=DEFAULT_TIMEOUT)) as session:
-            async with session.get(url, params=params, headers=headers) as response:
-                if response.status == 429:
-                    _LOGGER.warning("Rate limit exceeded, waiting before retry")
-                    await asyncio.sleep(5)  # Wait 5 seconds before retry
-                    raise Exception("Rate limit exceeded, please try again later")
-                elif response.status != 200:
-                    raise Exception(f"EDR position query failed with status {response.status}")
-                
-                data = await response.json()
-                await self._process_edr_data(data)
+        try:
+            timeout = ClientTimeout(total=DEFAULT_TIMEOUT, connect=10, sock_read=30)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.get(url, params=params, headers=headers) as response:
+                    if response.status == 429:
+                        _LOGGER.warning("Rate limit exceeded, waiting before retry")
+                        await asyncio.sleep(5)  # Wait 5 seconds before retry
+                        raise Exception("Rate limit exceeded, please try again later")
+                    elif response.status == 404:
+                        error_text = await response.text()
+                        _LOGGER.error("EDR position query returned 404: %s", error_text)
+                        raise Exception("No weather data available for the requested time period. Please try again later.")
+                    elif response.status != 200:
+                        error_text = await response.text()
+                        _LOGGER.error("EDR position query failed with status %d: %s", response.status, error_text)
+                        raise Exception(f"EDR position query failed with status {response.status}")
+                    
+                    data = await response.json()
+                    await self._process_edr_data(data)
+        except asyncio.TimeoutError:
+            _LOGGER.error("Timeout connecting to DMI EDR API")
+            raise Exception("Timeout connecting to DMI EDR API. Please try again.")
+        except aiohttp.ClientError as e:
+            _LOGGER.error("Network error connecting to DMI EDR API: %s", e)
+            raise Exception(f"Network error: {e}")
 
     async def _process_edr_data(self, data: dict[str, Any]) -> None:
         """Process weather data from EDR API response."""

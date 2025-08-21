@@ -18,7 +18,7 @@ EDR_COLLECTIONS_ENDPOINT = "/collections"
 EDR_POSITION_QUERY = "/position"
 
 # API request parameters
-DEFAULT_TIMEOUT = 30
+DEFAULT_TIMEOUT = 60  # Increased to 60 seconds for slow API responses
 MAX_FORECAST_DAYS = 5
 
 # Weather condition mappings for EDR data
