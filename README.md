@@ -167,6 +167,4 @@ This project is licensed under the MIT License.
 
 ## Status
 
-**Current Status**: ✅ **Fully Working and Ready for Production**
-
-The integration is complete and fully functional. It uses the efficient EDR API approach, providing fast response times and comprehensive weather data. The integration includes robust error handling and is ready for production use.
+Not working yet
